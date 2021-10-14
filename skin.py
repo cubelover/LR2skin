@@ -1,16 +1,15 @@
 from PIL import Image, ImageDraw, ImageFont
-import os, shutil, sys
+import os, shutil, sys, zipfile
 
 # For SD, use height = 480 and offset = 0
 
-if len(sys.argv) != 3:
-  print(f'Usage: {sys.argv[0]} height offset')
+if len(sys.argv) != 4:
+  print(f'Usage: {sys.argv[0]} height offset name')
   exit()
 
 HEIGHT = int(sys.argv[1])
 OFFSET = int(sys.argv[2])
-
-NAME = 'simple'
+NAME = f'simple{sys.argv[3]}'
 CREATOR = 'yune'
 CUSTOMOPTION = (
   ('TURNTABLE', ('LEFT', 'RIGHT')),
@@ -145,14 +144,14 @@ with open('7.csv', 'w') as f:
   for i in range(5):
     src('NUMBER', 0, 'NUMBER SMALL', 0, 0, _y(12) * 11, _y(24), 11, 1, 0, 0, 110 + i, 0, 5)
     dst('NUMBER', 0, _x(24), _y(i * 24 + 48), _y(12), _y(24))
-    
+
   src('NUMBER', 0, 'NUMBER SMALL', 0, 0, _y(12) * 11, _y(24), 11, 1, 0, 0, 163, 0, 2)
   dst('NUMBER', 0, _x(24), _y(324), _y(12), _y(24))
   src('IMAGE', 0, 'COLON', 0, 0, _y(12), _y(24), 1, 1)
   dst('IMAGE', 0, _x(48), _y(324), _y(12), _y(24))
   src('NUMBER', 0, 'NUMBER SMALL', 0, 0, _y(12) * 11, _y(24), 11, 1, 0, 0, 164, 0, 2)
   dst('NUMBER', 0, _x(60), _y(324), _y(12), _y(24))
-    
+
   src('NUMBER', 0, 'NUMBER SMALL', 0, 0, _y(12) * 11, _y(24), 11, 1, 0, 0, 10, 0, 3)
   dst('NUMBER', 0, _x(72), _y(360), _y(12), _y(24))
 
@@ -161,7 +160,7 @@ with open('7.csv', 'w') as f:
 
   src('BUTTON', 0, 'OPTION', 0, 0, _y(120), _y(24) * 6, 1, 6, 0, 0, 42, 0, 0, 0)
   dst('BUTTON', 0, _x(0), _y(408), _y(120), _y(24))
-  
+
   src('BUTTON', 0, 'OPTION', 0, _y(24) * 6, _y(120), _y(24) * 6, 1, 6, 0, 0, 40, 0, 0, 0)
   dst('BUTTON', 0, _x(0), _y(432), _y(120), _y(24))
 
@@ -522,3 +521,12 @@ for T in range(len(s)):
       a += aa
       pi[(i, j)] = toInt((r, g, b, a))
   im.save(f'Judge{T}/default.png', optimize = True)
+
+zf = zipfile.ZipFile(f'{NAME}.zip', 'w')
+for _, path, *_ in CUSTOMFILE:
+  for file in os.listdir(path):
+    zf.write(f'{path}/{file}')
+zf.write('7.csv')
+zf.write('7.lr2skin')
+zf.write('7gb.lr2skin')
+zf.close()
