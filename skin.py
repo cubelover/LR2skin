@@ -98,7 +98,7 @@ def lr2skin(b):
   src('SLIDER', 0, 'SHUTTER', 0, 0, 1, _(480), 1, 1, 0, 0, 2, _(480), 4, 1)
   dst('SLIDER', 0, _(120), _(-480), _(400), _(480))
 
-  src('NUMBER', 0, 'NUMBER SMALL', 0, 0, _(12) * 12, _(24) * 2, 12, 2, 0, 0, 153 if b else 108, 0, 5)
+  src('NUMBER', 0, 'NUMBER SMALL', 0, 0, _(12) * 12, _(24) * 2, 12, 2, 0, 0, 108, 0, 5)
   dst('NUMBER', 0, _(284), _(48), _(12), _(24))
 
   for i in range(6):
