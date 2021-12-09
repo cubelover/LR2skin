@@ -6,6 +6,7 @@ NAME = f'simple{sys.argv[2]}' if len(sys.argv) > 2 else 'simple'
 CREATOR = 'yune'
 CUSTOMOPTION = (
   ('TURNTABLE', ('LEFT', 'RIGHT')),
+  ('UI', ('default', 'reversed')),
 )
 CUSTOMFILE = (
   ('NOTE', 'Note', 'csv'),
@@ -18,7 +19,6 @@ CUSTOMFILE = (
   ('FRAME LEFT', 'FrameLeft'),
   ('FRAME RIGHT', 'FrameRight'),
   ('PROGRESS', 'Progress'),
-  ('LOADING', 'Loading'),
   ('LINE', 'Line'),
   ('JUDGE 0', 'Judge0'),
   ('JUDGE 1', 'Judge1'),
@@ -37,7 +37,11 @@ CUSTOMFILE = (
   ('DOT', 'Dot'),
   ('COLON', 'Colon'),
 )
-
+IMAGEFILE = (
+  ('RFRAMER', 'ReversedR', 'ReversedParts'),
+  ('RFRAMEL', 'ReversedL', 'ReversedParts'),
+  ('LOADING', 'default', 'Loading')
+)
 _ = lambda t: (
   (t * HEIGHT + t * HEIGHT // 480 % 2 + 239) // 480 if
   type(t) is int else
@@ -69,6 +73,14 @@ for op, path, *args in CUSTOMFILE:
   IMAGE[op] = N
   buffer.append(f'#IMAGE,LR2files\\Theme\\{NAME}\\{path}\\*.png\n')
   N += 1
+for op, pngname, path, *args in IMAGEFILE:
+  if args: continue
+  IMAGE[op] = N
+  buffer.append(f'#IMAGE,LR2files\\Theme\\{NAME}\\{path}\\{pngname}.png\n')
+  if os.path.isdir(path): shutil.rmtree(path)
+  os.mkdir(path)
+  N += 1
+
 
 buffer.append('#SCRATCHSIDE,0,0\n')
 buffer.append('#STARTINPUT,0\n')
@@ -111,9 +123,14 @@ def lr2skin(b):
 
   src('IMAGE', 0, 'FINISH', 0, 0, _(400), _(240), 1, 1)
   dst('IMAGE', 0, _(120), _(240), _(400), _(240), 0, 143)
+  
+  f.write(f'#IF,{OP["UI"]["default"]}\n')
 
   src('IMAGE', 0, 'FRAME LEFT', 0, 0, _(120), _(480), 1, 1)
   dst('IMAGE', 0, _(0), _(0), _(120), _(480))
+
+  src('IMAGE', 0, 'FRAME RIGHT', 0, 0, _(120), _(480), 1, 1)
+  dst('IMAGE', 0, _(520), _(0), _(120), _(480))
 
   src('BARGRAPH', 0, 'LOADING', 0, 0, 1, 1, 1, 1, 0, 0, 2, 1)
   dst('BARGRAPH', 0, _(96), _(360), _(24), _(-360), 0, 0, 80)
@@ -125,6 +142,19 @@ def lr2skin(b):
   src('SLIDER', 0, 'PROGRESS', 0, 0, _(24), _(24), 1, 1, 0, 0, 2, _(336), 6, 1)
   dst('SLIDER', 0, _(96), _(0), _(24), _(24), 0, 0, 81)
 
+  src('NUMBER', 0, 'NUMBER BIG', 0, 0, _(24) * 10, _(48), 10, 1, 0, 0, 107, 2, 3)
+  dst('NUMBER', 0, _(544), _(126), _(24), _(48))
+
+  src('NUMBER', 0, 'NUMBER SMALL', 0, 0, _(12) * 11, _(24), 11, 1, 0, 0, 163, 0, 2)
+  dst('NUMBER', 0, _(24), _(324), _(12), _(24))
+  src('IMAGE', 0, 'COLON', 0, 0, _(12), _(24), 1, 1)
+  dst('IMAGE', 0, _(48), _(324), _(12), _(24))
+  src('NUMBER', 0, 'NUMBER SMALL', 0, 0, _(12) * 11, _(24), 11, 1, 0, 0, 164, 0, 2)
+  dst('NUMBER', 0, _(60), _(324), _(12), _(24))
+  
+  src('GROOVEGAUGE', 0, 'GAUGE', 0, 0, _(120), _(6) * 4, 1, 4, 0, 0, 0, _(-6))
+  dst('GROOVEGAUGE', 0, _(520), _(474), _(120), _(6))
+
   src('NUMBER', 0, 'NUMBER SMALL', 0, 0, _(12) * 11, _(24), 11, 1, 0, 0, 102, 0, 2)
   dst('NUMBER', 0, _(24), _(24), _(12), _(24))
   src('IMAGE', 0, 'DOT', 0, 0, _(12), _(24), 1, 1)
@@ -135,13 +165,6 @@ def lr2skin(b):
   for i in range(5):
     src('NUMBER', 0, 'NUMBER SMALL', 0, 0, _(12) * 11, _(24), 11, 1, 0, 0, 110 + i, 0, 5)
     dst('NUMBER', 0, _(24), _(i * 24 + 48), _(12), _(24))
-
-  src('NUMBER', 0, 'NUMBER SMALL', 0, 0, _(12) * 11, _(24), 11, 1, 0, 0, 163, 0, 2)
-  dst('NUMBER', 0, _(24), _(324), _(12), _(24))
-  src('IMAGE', 0, 'COLON', 0, 0, _(12), _(24), 1, 1)
-  dst('IMAGE', 0, _(48), _(324), _(12), _(24))
-  src('NUMBER', 0, 'NUMBER SMALL', 0, 0, _(12) * 11, _(24), 11, 1, 0, 0, 164, 0, 2)
-  dst('NUMBER', 0, _(60), _(324), _(12), _(24))
 
   src('NUMBER', 0, 'NUMBER SMALL', 0, 0, _(12) * 11, _(24), 11, 1, 0, 0, 10, 0, 3)
   dst('NUMBER', 0, _(72), _(360), _(12), _(24))
@@ -157,20 +180,90 @@ def lr2skin(b):
 
   for i in range(4):
     src('IMAGE', 0, 'OPTION', 0, _(24) * (i + 12), _(120), _(24), 1, 1)
-    dst('IMAGE', 0, _(0), _(456), _(120), _(24), 0, 0, 180 + i)
+    dst('IMAGE', 0, _(0), _(456), _(120), _(24), 0, 0, 180 + i, -290)
 
-  src('IMAGE', 0, 'FRAME RIGHT', 0, 0, _(120), _(480), 1, 1)
-  dst('IMAGE', 0, _(520), _(0), _(120), _(480))
+  for i in range(4):
+    src('IMAGE', 0, 'OPTION', 0, _(24) * (i + 16), _(120), _(24), 1, 1)
+    dst('IMAGE', 0, _(0), _(456), _(120), _(24), 0, 0, 280 + i, 290)
+
+  src('IMAGE', 0, 'OPTION', 0, _(24) * (20), _(120), _(24), 1, 1)
+  dst('IMAGE', 0, _(0), _(456), _(120), _(24), 0, 0, 289, 290)
 
   for i, t in enumerate(('AAA', 'AA', 'A', 'B', 'C', 'D', 'E', 'F')):
     src('IMAGE', 0, f'RANK {t}', 0, 0, _(120), _(120), 1, 1)
     dst('IMAGE', 0, _(520), _(0), _(120), _(120), 0, 0, 200 + i)
 
+  f.write(f'#ENDIF\n')
+
+  f.write(f'#IF,{OP["UI"]["reversed"]}\n')
+  src('IMAGE', 0, 'RFRAMEL', 0, 0, _(120), _(480), 1, 1)
+  dst('IMAGE', 0, _(520), _(0), _(120), _(480))
+
+  src('IMAGE', 0, 'RFRAMER', 0, 0, _(120), _(480), 1, 1)
+  dst('IMAGE', 0, _(0), _(0), _(120), _(480))
+
+  src('BARGRAPH', 0, 'LOADING', 0, 0, 1, 1, 1, 1, 0, 0, 2, 1)
+  dst('BARGRAPH', 0, _(520), _(360), _(24), _(-360), 0, 0, 80)
+
+  src('IMAGE', 0, 'LOADING', 0, 0, 1, 1, 1, 1)
+  dst('IMAGE', 0, _(520), _(0), _(24), _(360), -1, 40, 81, blend = 1)
+  dst('IMAGE', 0, _(520), _(0), _(24), _(360), time = 1000, alpha = 0)
+
+  src('SLIDER', 0, 'PROGRESS', 0, 0, _(24), _(24), 1, 1, 0, 0, 2, _(336), 6, 1)
+  dst('SLIDER', 0, _(520), _(0), _(24), _(24), 0, 0, 81)
+
   src('NUMBER', 0, 'NUMBER BIG', 0, 0, _(24) * 10, _(48), 10, 1, 0, 0, 107, 2, 3)
-  dst('NUMBER', 0, _(544), _(126), _(24), _(48))
+  dst('NUMBER', 0, _(24), _(126), _(24), _(48))
+
+  src('NUMBER', 0, 'NUMBER SMALL', 0, 0, _(12) * 11, _(24), 11, 1, 0, 0, 163, 0, 2)
+  dst('NUMBER', 0, _(557), _(324), _(12), _(24))
+  src('IMAGE', 0, 'COLON', 0, 0, _(12), _(24), 1, 1)
+  dst('IMAGE', 0, _(581), _(324), _(12), _(24))
+  src('NUMBER', 0, 'NUMBER SMALL', 0, 0, _(12) * 11, _(24), 11, 1, 0, 0, 164, 0, 2)
+  dst('NUMBER', 0, _(593), _(324), _(12), _(24))
 
   src('GROOVEGAUGE', 0, 'GAUGE', 0, 0, _(120), _(6) * 4, 1, 4, 0, 0, 0, _(-6))
-  dst('GROOVEGAUGE', 0, _(520), _(474), _(120), _(6))
+  dst('GROOVEGAUGE', 0, _(0), _(474), _(120), _(6))
+
+  src('NUMBER', 0, 'NUMBER SMALL', 0, 0, _(12) * 11, _(24), 11, 1, 0, 0, 102, 0, 2)
+  dst('NUMBER', 0, _(557), _(24), _(12), _(24))
+  src('IMAGE', 0, 'DOT', 0, 0, _(12), _(24), 1, 1)
+  dst('IMAGE', 0, _(581), _(24), _(12), _(24))
+  src('NUMBER', 0, 'NUMBER SMALL', 0, 0, _(12) * 11, _(24), 11, 1, 0, 0, 103, 0, 2)
+  dst('NUMBER', 0, _(593), _(24), _(12), _(24))
+
+  for i in range(5):
+    src('NUMBER', 0, 'NUMBER SMALL', 0, 0, _(12) * 11, _(24), 11, 1, 0, 0, 110 + i, 0, 5)
+    dst('NUMBER', 0, _(557), _(i * 24 + 48), _(12), _(24))
+
+  src('NUMBER', 0, 'NUMBER SMALL', 0, 0, _(12) * 11, _(24), 11, 1, 0, 0, 10, 0, 3)
+  dst('NUMBER', 0, _(592), _(360), _(12), _(24))
+
+  src('NUMBER', 0, 'NUMBER SMALL', 0, 0, _(12) * 11, _(24), 11, 1, 0, 0, 160, 0, 3)
+  dst('NUMBER', 0, _(592), _(384), _(12), _(24))
+
+  src('BUTTON', 0, 'OPTION', 0, 0, _(120), _(24) * 6, 1, 6, 0, 0, 42, 0, 0, 0)
+  dst('BUTTON', 0, _(520), _(408), _(120), _(24))
+
+  src('BUTTON', 0, 'OPTION', 0, _(24) * 6, _(120), _(24) * 6, 1, 6, 0, 0, 40, 0, 0, 0)
+  dst('BUTTON', 0, _(520), _(432), _(120), _(24))
+
+  for i in range(4):
+    src('IMAGE', 0, 'OPTION', 0, _(24) * (i + 12), _(120), _(24), 1, 1)
+    dst('IMAGE', 0, _(520), _(456), _(120), _(24), 0, 0, 180 + i, -290)
+
+  for i in range(4):
+    src('IMAGE', 0, 'OPTION', 0, _(24) * (i + 16), _(120), _(24), 1, 1)
+    dst('IMAGE', 0, _(520), _(456), _(120), _(24), 0, 0, 280 + i, 290)
+
+  src('IMAGE', 0, 'OPTION', 0, _(24) * (20), _(120), _(24), 1, 1)
+  dst('IMAGE', 0, _(520), _(456), _(120), _(24), 0, 0, 289, 290)
+
+  for i, t in enumerate(('AAA', 'AA', 'A', 'B', 'C', 'D', 'E', 'F')):
+    src('IMAGE', 0, f'RANK {t}', 0, 0, _(120), _(120), 1, 1)
+    dst('IMAGE', 0, _(0), _(0), _(120), _(120), 0, 0, 200 + i)
+
+  f.write(f'#ENDIF\n')
 
   if b:
     for i in range(8):
@@ -276,15 +369,36 @@ im.save('FrameLeft/default.png', optimize = True)
 
 im = Image.new('RGBA', (_(120), _(480)), (0, 0, 0, 0))
 pi = im.load()
+for i in range(_(480)): pi[(_(120) - 1, i)] = (255, 255, 255, 255)
+for i in range(_(480)): pi[(0, i)] = (255, 255, 255, 255)
+for i in range(_(360)): pi[(_(24), i)] = (255, 255, 255, 255)
+for i in range(360, 480, 24):
+  for j in range(_(120)):
+    pi[(j, _(i))] = (255, 255, 255, 255)
+font = ImageFont.truetype('./Lato/Lato-Regular.ttf', _(16))
+draw = ImageDraw.Draw(im)
+txt = ['SPEED', 'B  P  M']
+for i in range(len(txt)):
+  w, h = draw.textsize(txt[i], font = font)
+  draw.text(((_(61) - w) / 2, (_(48 * i + 740.) - h) / 2), txt[i], (255, 255, 255), font = font)
+im.save('ReversedParts/reversedL.png', optimize = True)
+
+im = Image.new('RGBA', (_(120), _(480)), (0, 0, 0, 0))
+pi = im.load()
 for i in range(_(480)): pi[(0, i)] = (255, 255, 255, 255)
 im.save('FrameRight/default.png', optimize = True)
+
+im = Image.new('RGBA', (_(120), _(480)), (0, 0, 0, 0))
+pi = im.load()
+for i in range(_(480)): pi[(_(120) - 1, i)] = (255, 255, 255, 255)
+im.save('ReversedParts/reversedR.png', optimize = True)
 
 im = Image.new('RGBA', (1, _(480)), (0, 0, 0, 255))
 pi = im.load()
 pi[(0, _(480) - 1)] = (255, 255, 255, 255)
 im.save('Shutter/default.png', optimize = True)
 
-im = Image.new('RGBA', (_(120), _(24) * 16), (0, 0, 0, 0))
+im = Image.new('RGBA', (_(120), _(24) * 21), (0, 0, 0, 0))
 draw = ImageDraw.Draw(im)
 txt = [
   'OFF',
@@ -303,6 +417,11 @@ txt = [
   'HARD',
   'NORMAL',
   'EASY',
+  'STAGE 1',
+  'STAGE 2',
+  'STAGE 3',
+  'STAGE 4',
+  'STAGE FINAL',
 ]
 for i in range(len(txt)):
   w, h = draw.textsize(txt[i], font = font)
