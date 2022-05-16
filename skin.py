@@ -39,20 +39,20 @@ CUSTOMFILE = (
 
 _ = lambda t: (
   (t * HEIGHT + t * HEIGHT // 480 % 2 + 239) // 480 if
-  type(t) is int else
+  isinstance(t, int) else
   t * HEIGHT / 480
 )
 
 buffer = []
 
-i = 900
+NUM = 900
 OP = {}
 for op, labels in CUSTOMOPTION:
-  buffer.append(f'#CUSTOMOPTION,{op},{i},{",".join(labels)}\n')
+  buffer.append(f'#CUSTOMOPTION,{op},{NUM},{",".join(labels)}\n')
   t = {}
   for label in labels:
-    t[label] = i
-    i += 1
+    t[label] = NUM
+    NUM += 1
   OP[op] = t
 for op, path, *args in CUSTOMFILE:
   buffer.append(f'#CUSTOMFILE,{op},LR2files\\Theme\\{NAME}\\{path}\\*.{args[0] if args else "png"},default\n')
@@ -66,8 +66,8 @@ buffer.append('#STARTINPUT,0\n')
 buffer.append('#LOADSTART,0\n')
 buffer.append('#LOADEND,1000\n')
 buffer.append('#PLAYSTART,1000\n')
-buffer.append('#FADEOUT,100\n')
-buffer.append('#CLOSE,100\n')
+buffer.append('#FADEOUT,200\n')
+buffer.append('#CLOSE,200\n')
 
 IMAGE = {}
 N = 0
@@ -84,7 +84,7 @@ N += 1
 buffer = ''.join(buffer)
 
 def src(tag, num, img, x, y, w, h, dx, dy, *args):
-  f.write(f'#SRC_{tag},{num},{img if type(img) is int else IMAGE[img]},{x},{y},{w},{h},{dx},{dy}{"".join(f",{arg}" for arg in args)}\n')
+  f.write(f'#SRC_{tag},{num},{img if isinstance(img, int) else IMAGE[img]},{x},{y},{w},{h},{dx},{dy}{"".join(f",{arg}" for arg in args)}\n')
 
 def dst(tag, num, x, y, w, h, *args, time = 0, alpha = 255, blend = 0):
   f.write(f'#DST_{tag},{num},{time},{x},{y},{w},{h},0,{alpha},255,255,255,{blend},0,0,0{"".join(f",{arg}" for arg in args)}\n')
@@ -94,9 +94,9 @@ def lr2skin(b):
   f.write(buffer)
 
   f.write(f'#INCLUDE,LR2files\\Theme\\{NAME}\\Frame\\*.csv\n')
-  
-  src('LINE', 0, 'LINE', 0, 0, _(400), _(50), 1, 1)
-  dst('LINE', 0, _(120), _(455), _(400), _(50))
+
+  src('LINE', 0, 'LINE', 0, 0, _(400), 1, 1, 1)
+  dst('LINE', 0, _(120), _(480), _(400), 1)
 
   f.write(f'#INCLUDE,LR2files\\Theme\\{NAME}\\Note\\*.csv\n')
 
@@ -125,7 +125,7 @@ def lr2skin(b):
   if b:
     for i in range(8):
       dst('NOTE', i + 10, 0, 0, 0, 0)
-  
+
 def frame(b):
   f.write(f'#IMAGE,LR2files\\Theme\\{NAME}\\Frame\\{"mirror" if b else "default"}-left.png\n')
   f.write(f'#IMAGE,LR2files\\Theme\\{NAME}\\Frame\\{"mirror" if b else "default"}-right.png\n')
@@ -214,33 +214,74 @@ with open('Frame/default.csv', 'w') as f:
 with open('Frame/mirror.csv', 'w') as f:
   frame(True)
 
-def note(imgs, keys, b):
-  for y in imgs:
-    f.write(f'#IMAGE,LR2files\\Theme\\{NAME}\\Note\\{y}.png\n')
-  for i, j in enumerate(keys): src('NOTE', i, N + j, 0, 0, _(50), 1, 1, 1)
-  for i, j in enumerate(keys): src('LN_START', i, N + j, 0, 0, _(50), 1, 1, 1)
-  for i, j in enumerate(keys): src('LN_BODY', i, N + j, 0, 0, _(50), 1, 1, 1)
-  for i, j in enumerate(keys): src('LN_END', i, N + j, 0, 0, _(50), 1, 1, 1)
-  f.write(f'#IF,{OP["TURNTABLE"]["LEFT"]}\n')
-  for i in range(8): dst('NOTE', -i & 7 if b else i, _(120 + i * 50), _(472), _(50), _(16))
-  f.write(f'#ENDIF\n')
-  f.write(f'#IF,{OP["TURNTABLE"]["RIGHT"]}\n')
-  for i in range(8): dst('NOTE', 7 - i if b else i + 1 & 7, _(120 + i * 50), _(472), _(50), _(16))
-  f.write(f'#ENDIF\n')
+def noteset(dh, sh, name):
+  global f
+  def note(imgs, keys, b, dh, sh, k):
+    for y in imgs:
+      f.write(f'#IMAGE,LR2files\\Theme\\{NAME}\\Note\\{y}.png\n')
+    for i, j in enumerate(keys): src('NOTE', i, N + j, 0, 0, _(50), sh, 1, 1)
+    for i, j in enumerate(keys): src('LN_START', i, N + j + k, 0, 0, _(50), sh, 1, 1)
+    for i, j in enumerate(keys): src('LN_BODY', i, N + j + k * 2, 0, 0, _(50), 1, 1, 1)
+    for i, j in enumerate(keys): src('LN_END', i, N + j + k * 3, 0, 0, _(50), sh, 1, 1)
+    f.write(f'#IF,{OP["TURNTABLE"]["LEFT"]}\n')
+    for i in range(8): dst('NOTE', -i & 7 if b else i, _(120 + i * 50), _(480), _(50), dh)
+    f.write('#ENDIF\n')
+    f.write(f'#IF,{OP["TURNTABLE"]["RIGHT"]}\n')
+    for i in range(8): dst('NOTE', 7 - i if b else i + 1 & 7, _(120 + i * 50), _(480), _(50), dh)
+    f.write('#ENDIF\n')
 
-x = ('default-red', 'default-white', 'default-blue')
-y = (0, 1, 2, 1, 2, 1, 2, 1)
-with open('Note/default.csv', 'w') as f:
-  note(x, y, False)
-with open('Note/mirror.csv', 'w') as f:
-  note(x, y, True)
+  sprite = (name, ) if sh == 1 else (name, f'{name}LNStart', 'default', f'{name}LNEnd')
+  color = ('red', 'white', 'blue', 'orange')
 
-x = ('default-red', 'default-white', 'default-blue', 'default-orange')
-y = (0, 1, 2, 1, 3, 1, 2, 1)
-with open('Note/default2.csv', 'w') as f:
-  note(x, y, False)
-with open('Note/mirror2.csv', 'w') as f:
-  note(x, y, True)
+  x = [f'{s}-{c}' for s in sprite for c in color[:-1]]
+  y = (0, 1, 2, 1, 2, 1, 2, 1)
+  with open(f'Note/{name}.csv', 'w') as f:
+    note(x, y, False, dh, sh, (sh != 1) * 3)
+  with open(f'Note/{name}Mirror.csv', 'w') as f:
+    note(x, y, True, dh, sh, (sh != 1) * 3)
+
+  x = [f'{s}-{c}' for s in sprite for c in color]
+  y = (0, 1, 2, 1, 3, 1, 2, 1)
+  with open(f'Note/{name}2.csv', 'w') as f:
+    note(x, y, False, dh, sh, (sh != 1) * 4)
+  with open(f'Note/{name}2Mirror.csv', 'w') as f:
+    note(x, y, True, dh, sh, (sh != 1) * 4)
+
+  x = [f'{s}-{c}' for s in sprite for c in color[:-1]]
+  y = (0, 1, 1, 1, 2, 1, 1, 1)
+  with open(f'Note/{name}3.csv', 'w') as f:
+    note(x, y, False, dh, sh, (sh != 1) * 3)
+  with open(f'Note/{name}3Mirror.csv', 'w') as f:
+    note(x, y, True, dh, sh, (sh != 1) * 3)
+
+noteset(_(16), 1, 'default')
+noteset(_(50), _(50), 'circle')
+
+for n, c in (
+  ('red', (255, 0, 0)),
+  ('blue', (0, 128, 255)),
+  ('white', (255, 255, 255)),
+  ('orange', (255, 128, 0)),
+):
+  def render(name, w, h, cal):
+    im = Image.new('RGBA', (w, h), (0, 0, 0, 0))
+    pi = im.load()
+    for i in range(w):
+      for j in range(h):
+        r = g = b = a = 0
+        for k in range(16):
+          for l in range(16):
+            _r, _g, _b, _a = cal(i << 5 | k << 1 | 1, j << 5 | l << 1 | 1)
+            r += _r * _a
+            g += _g * _a
+            b += _b * _a
+            a += _a
+        pi[(i, j)] = ((r + r + a) // (a + a), (g + g + a) // (a + a), (b + b + a) // (a + a), a + 128 >> 8) if a else (0, 0, 0, 0)
+    im.save(f'Note/{name}-{n}.png', optimize = True)
+  render('default', _(50), 1, lambda x, y: (*c, 255 if abs(x - _(800)) < _(768) else 0))
+  render('circle', _(50), _(50), lambda x, y: (*c, 255 if (x - _(800)) ** 2 + (y - _(800)) ** 2 < _(768) ** 2 else 0))
+  render('circleLNStart', _(50), _(50), lambda x, y: (*c, 255 if (x - _(800)) ** 2 + max(0, y - _(800)) ** 2 < _(768) ** 2 else 0))
+  render('circleLNEnd', _(50), _(50), lambda x, y: (*c, 255 if (x - _(800)) ** 2 + max(0, _(800) - y) ** 2 < _(768) ** 2 else 0))
 
 im = Image.new('RGBA', (_(120), _(480)), (0, 0, 0, 0))
 pi = im.load()
@@ -252,9 +293,9 @@ for i in range(360, 480, 24):
 font = ImageFont.truetype('./Lato/Lato-Regular.ttf', _(16))
 draw = ImageDraw.Draw(im)
 txt = ('SPEED', 'B  P  M')
-for i in range(len(txt)):
-  w, h = draw.textsize(txt[i], font = font)
-  draw.text(((_(60) - w) / 2, (_(48 * i + 740.) - h) / 2), txt[i], (255, 255, 255), font = font)
+for i, t in enumerate(txt):
+  w, h = draw.textsize(t, font = font)
+  draw.text(((_(60) - w) / 2, (_(48 * i + 740.) - h) / 2), t, (255, 255, 255), font = font)
 im.save('Frame/default-left.png', optimize = True)
 
 im = Image.new('RGBA', (_(120), _(480)), (0, 0, 0, 0))
@@ -268,9 +309,9 @@ for i in range(360, 480, 24):
 font = ImageFont.truetype('./Lato/Lato-Regular.ttf', _(16))
 draw = ImageDraw.Draw(im)
 txt = ('SPEED', 'B  P  M')
-for i in range(len(txt)):
-  w, h = draw.textsize(txt[i], font = font)
-  draw.text(((_(61) - w) / 2, (_(48 * i + 740.) - h) / 2), txt[i], (255, 255, 255), font = font)
+for i, t in enumerate(txt):
+  w, h = draw.textsize(t, font = font)
+  draw.text(((_(60) - w) / 2, (_(48 * i + 740.) - h) / 2), t, (255, 255, 255), font = font)
 im.save('Frame/mirror-right.png', optimize = True)
 
 im = Image.new('RGBA', (_(120), _(480)), (0, 0, 0, 0))
@@ -313,9 +354,9 @@ txt = (
   'STAGE 4',
   'STAGE FINAL',
 )
-for i in range(len(txt)):
-  w, h = draw.textsize(txt[i], font = font)
-  draw.text(((_(120) - w) / 2, _(24) * i + (_(20.) - h) / 2), txt[i], (255, 255, 255), font = font)
+for i, t in enumerate(txt):
+  w, h = draw.textsize(t, font = font)
+  draw.text(((_(120) - w) / 2, _(24) * i + (_(20.) - h) / 2), t, (255, 255, 255), font = font)
 im.save('Option/default.png', optimize = True)
 
 im = Image.new('RGBA', (_(24), _(24)), (0, 0, 0, 0))
@@ -328,26 +369,12 @@ im.save('Progress/default.png', optimize = True)
 im = Image.new('RGBA', (1, 1), (170, 170, 170, 255))
 im.save('Loading/default.png', optimize = True)
 
-im = Image.new('RGBA', (_(400), _(50)), (0, 0, 0, 0))
+im = Image.new('RGBA', (_(400), 1), (0, 0, 0, 0))
 im.save('Line/transparent.png', optimize = True)
 pi = im.load()
 for i in range(_(400)):
-  pi[(i, _(25))] = (170, 170, 170, 255)
+  pi[(i, 0)] = (170, 170, 170, 255)
 im.save('Line/default.png', optimize = True)
-
-for n, c in (
-  ('red', (255, 0, 0)),
-  ('blue', (0, 128, 255)),
-  ('white', (255, 255, 255)),
-  ('orange', (255, 128, 0)),
-):
-  im = Image.new('RGBA', (_(50), 1), (0, 0, 0, 0))
-  pi = im.load()
-  for i in range(_(1), _(49)):
-    pi[(i, 0)] = (*c, 255)
-  im.save(f'Note/default-{n}.png', optimize = True)
-  im = Image.new('RGBA', (_(50), _(50)), (0, 0, 0, 0))
-  pi = im.load()
 
 im = Image.new('RGBA', (_(120), _(6) * 4), (0, 0, 0, 0))
 pi = im.load()
@@ -428,7 +455,7 @@ for j in range(len(s)):
     draw.text((i * _(12) + (_(12) - w) / 2, j * _(24) + (_(20.) - h) / 2), s[j][i], c[j], font = font)
 pi = im.load()
 w, h = im.size
-d = blur(pi, w, h, _(1))
+d = blur(pi, w, h, _(2))
 for i in range(w):
   for j in range(h):
     if not d[i][j]: continue
