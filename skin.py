@@ -19,6 +19,7 @@ CUSTOMFILE = (
   ('PROGRESS', 'Progress'),
   ('LINE', 'Line'),
   ('LOADING', 'Loading'),
+  ('JUDGELINE', 'Judgeline'),
   ('JUDGE 0', 'Judge0'),
   ('JUDGE 1', 'Judge1'),
   ('JUDGE 2', 'Judge2'),
@@ -122,6 +123,9 @@ def lr2skin(b):
   src('IMAGE', 0, 'FINISH', 0, 0, _(400), _(240), 1, 1)
   dst('IMAGE', 0, _(120), _(240), _(400), _(240), 0, 143)
 
+  src('JUDGELINE', 0, 'JUDGELINE', 0, 0, _(400), _(40), 1, 1)
+  dst('JUDGELINE', 0, _(120), _(460), _(400), _(40))
+
   if b:
     for i in range(8):
       dst('NOTE', i + 10, 0, 0, 0, 0)
@@ -224,10 +228,10 @@ def noteset(dh, sh, name):
     for i, j in enumerate(keys): src('LN_BODY', i, N + j + k * 2, 0, 0, _(50), 1, 1, 1)
     for i, j in enumerate(keys): src('LN_END', i, N + j + k * 3, 0, 0, _(50), sh, 1, 1)
     f.write(f'#IF,{OP["TURNTABLE"]["LEFT"]}\n')
-    for i in range(8): dst('NOTE', -i & 7 if b else i, _(120 + i * 50), _(480), _(50), dh)
+    for i in range(8): dst('NOTE', -i & 7 if b else i, _(120 + i * 50), _(480) - (dh >> 1), _(50), dh)
     f.write('#ENDIF\n')
     f.write(f'#IF,{OP["TURNTABLE"]["RIGHT"]}\n')
-    for i in range(8): dst('NOTE', 7 - i if b else i + 1 & 7, _(120 + i * 50), _(480), _(50), dh)
+    for i in range(8): dst('NOTE', 7 - i if b else i + 1 & 7, _(120 + i * 50), _(480) - (dh >> 1), _(50), dh)
     f.write('#ENDIF\n')
 
   sprite = (name, ) if sh == 1 else (name, f'{name}LNStart', 'default', f'{name}LNEnd')
@@ -377,12 +381,30 @@ for i in range(_(400)):
 im.save('Line/default.png', optimize = True)
 
 im = Image.new('RGBA', (_(120), _(6) * 4), (0, 0, 0, 0))
+im.save('Gauge/transparent.png', optimize = True)
 pi = im.load()
 c = [(255, 255, 255, 255), (0, 0, 255, 255), (0, 0, 0, 0), (0, 0, 85, 255)]
 for i in range(_(30), _(90)):
   for j in range(_(6) * 4):
     pi[(i, j)] = c[j // _(6)]
 im.save('Gauge/default.png', optimize = True)
+
+im = Image.new('RGBA', (_(400), _(40)), (0, 0, 0, 0))
+im.save('Judgeline/transparent.png', optimize = True)
+pi = im.load()
+for i in range(_(400)):
+  for j in range(_(16), _(24)):
+    pi[(i, j)] = (255, 255, 255, 255)
+im.save('Judgeline/default.png', optimize = True)
+
+im = Image.new('RGBA', (_(400), _(40)), (0, 0, 0, 0))
+pi = im.load()
+for i in range(_(400)):
+  for j in range(_(10), _(30)):
+    t = abs(j - _(20) + .5) / _(10)
+    tt = min(1, t * 4)
+    pi[(i, j)] = (int(255 * (1 - tt / 2) + .5), int(255 * (1 - tt / 8) + .5), 255, int(255 * (1 - t) + .5))
+im.save('Judgeline/R.png', optimize = True)
 
 font = ImageFont.truetype('./Lato/Lato-Regular.ttf', _(16))
 
