@@ -6,6 +6,9 @@ NAME = f'simple{sys.argv[2]}' if len(sys.argv) > 2 else 'simple'
 CREATOR = 'yune'
 CUSTOMOPTION = (
   ('TURNTABLE', ('LEFT', 'RIGHT')),
+  ('MIRROR', ('OFF', 'ON')),
+  ('COLOR 1', ('1', '0')),
+  ('COLOR 2', ('2', '0', '1')),
 )
 CUSTOMFILE = (
   ('FRAME', 'Frame', 'csv'),
@@ -218,74 +221,81 @@ with open('Frame/default.csv', 'w') as f:
 with open('Frame/mirror.csv', 'w') as f:
   frame(True)
 
-def noteset(dh, sh, name):
-  global f
-  def note(imgs, keys, b, dh, sh, k):
-    for y in imgs:
-      f.write(f'#IMAGE,LR2files\\Theme\\{NAME}\\Note\\{y}.png\n')
-    for i, j in enumerate(keys): src('NOTE', i, N + j, 0, 0, _(50), sh, 1, 1)
-    for i, j in enumerate(keys): src('LN_START', i, N + j + k, 0, 0, _(50), sh, 1, 1)
-    for i, j in enumerate(keys): src('LN_BODY', i, N + j + k * 2, 0, 0, _(50), 1, 1, 1)
-    for i, j in enumerate(keys): src('LN_END', i, N + j + k * 3, 0, 0, _(50), sh, 1, 1)
-    f.write(f'#IF,{OP["TURNTABLE"]["LEFT"]}\n')
-    for i in range(8): dst('NOTE', -i & 7 if b else i, _(120 + i * 50), _(480) - (dh >> 1), _(50), dh)
-    f.write('#ENDIF\n')
-    f.write(f'#IF,{OP["TURNTABLE"]["RIGHT"]}\n')
-    for i in range(8): dst('NOTE', 7 - i if b else i + 1 & 7, _(120 + i * 50), _(480) - (dh >> 1), _(50), dh)
-    f.write('#ENDIF\n')
-
+def note(name, sh, dh):
+  k = 0 if sh == 1 else 4
   sprite = (name, ) if sh == 1 else (name, f'{name}LNStart', 'default', f'{name}LNEnd')
-  color = ('red', 'white', 'blue', 'orange')
+  color = '0123'
+  for s in sprite:
+    for c in color:
+      f.write(f'#IMAGE,LR2files\\Theme\\{NAME}\\Note\\{s}-{c}.png\n')
+  def notesrc(i, j):
+    src('NOTE', i, N + j, 0, 0, _(50), sh, 1, 1)
+    src('LN_START', i, N + j + k, 0, 0, _(50), sh, 1, 1)
+    src('LN_BODY', i, N + j + k * 2, 0, 0, _(50), 1, 1, 1)
+    src('LN_END', i, N + j + k * 3, 0, 0, _(50), sh, 1, 1)
+  for i in range(8):
+    if i == 0:
+      notesrc(0, 0)
+    elif i % 2:
+      notesrc(i, 1)
+    else:
+      for j in range(2 if i % 4 else 3):
+        f.write(f'#IF,{OP[f"COLOR {1 if i % 4 else 2}"][str(j)]}\n')
+        notesrc(i, j + 1)
+        f.write('#ENDIF\n')
+  f.write(f'#IF,{OP["TURNTABLE"]["LEFT"]},{OP["MIRROR"]["OFF"]}\n')
+  for i in range(8): dst('NOTE', i, _(120 + i * 50), _(480) - (dh >> 1), _(50), dh)
+  f.write('#ENDIF\n')
+  f.write(f'#IF,{OP["TURNTABLE"]["RIGHT"]},{OP["MIRROR"]["OFF"]}\n')
+  for i in range(8): dst('NOTE', i + 1 & 7, _(120 + i * 50), _(480) - (dh >> 1), _(50), dh)
+  f.write('#ENDIF\n')
+  f.write(f'#IF,{OP["TURNTABLE"]["LEFT"]},{OP["MIRROR"]["ON"]}\n')
+  for i in range(8): dst('NOTE', -i & 7, _(120 + i * 50), _(480) - (dh >> 1), _(50), dh)
+  f.write('#ENDIF\n')
+  f.write(f'#IF,{OP["TURNTABLE"]["RIGHT"]},{OP["MIRROR"]["ON"]}\n')
+  for i in range(8): dst('NOTE', 7 - i, _(120 + i * 50), _(480) - (dh >> 1), _(50), dh)
+  f.write('#ENDIF\n')
 
-  x = [f'{s}-{c}' for s in sprite for c in color[:-1]]
-  y = (0, 1, 2, 1, 2, 1, 2, 1)
-  with open(f'Note/{name}.csv', 'w') as f:
-    note(x, y, False, dh, sh, (sh != 1) * 3)
-  with open(f'Note/{name}Mirror.csv', 'w') as f:
-    note(x, y, True, dh, sh, (sh != 1) * 3)
+with open('Note/default.csv', 'w') as f: note('default', 1, _(16))
+with open('Note/circle.csv', 'w') as f: note('circle', _(50), _(50))
+with open('Note/ez2.csv', 'w') as f: note('ez2', _(50), _(50))
 
-  x = [f'{s}-{c}' for s in sprite for c in color]
-  y = (0, 1, 2, 1, 3, 1, 2, 1)
-  with open(f'Note/{name}2.csv', 'w') as f:
-    note(x, y, False, dh, sh, (sh != 1) * 4)
-  with open(f'Note/{name}2Mirror.csv', 'w') as f:
-    note(x, y, True, dh, sh, (sh != 1) * 4)
+def render(name, w, h, cal):
+  im = Image.new('RGBA', (w, h), (0, 0, 0, 0))
+  pi = im.load()
+  for i in range(w):
+    for j in range(h):
+      r = g = b = a = 0
+      for k in range(16):
+        for l in range(16):
+          _r, _g, _b, _a = cal(i << 5 | k << 1 | 1, j << 5 | l << 1 | 1)
+          r += _r * _a
+          g += _g * _a
+          b += _b * _a
+          a += _a
+      pi[(i, j)] = (int((r + r + a) / (a + a)), int((g + g + a) / (a + a)), int((b + b + a) / (a + a)), int(a / 256)) if a else (0, 0, 0, 0)
+  im.save(f'Note/{name}-{n}.png', optimize = True)
 
-  x = [f'{s}-{c}' for s in sprite for c in color[:-1]]
-  y = (0, 1, 1, 1, 2, 1, 1, 1)
-  with open(f'Note/{name}3.csv', 'w') as f:
-    note(x, y, False, dh, sh, (sh != 1) * 3)
-  with open(f'Note/{name}3Mirror.csv', 'w') as f:
-    note(x, y, True, dh, sh, (sh != 1) * 3)
-
-noteset(_(16), 1, 'default')
-noteset(_(50), _(50), 'circle')
-
-for n, c in (
-  ('red', (255, 0, 0)),
-  ('blue', (0, 128, 255)),
-  ('white', (255, 255, 255)),
-  ('orange', (255, 128, 0)),
-):
-  def render(name, w, h, cal):
-    im = Image.new('RGBA', (w, h), (0, 0, 0, 0))
-    pi = im.load()
-    for i in range(w):
-      for j in range(h):
-        r = g = b = a = 0
-        for k in range(16):
-          for l in range(16):
-            _r, _g, _b, _a = cal(i << 5 | k << 1 | 1, j << 5 | l << 1 | 1)
-            r += _r * _a
-            g += _g * _a
-            b += _b * _a
-            a += _a
-        pi[(i, j)] = ((r + r + a) // (a + a), (g + g + a) // (a + a), (b + b + a) // (a + a), a + 128 >> 8) if a else (0, 0, 0, 0)
-    im.save(f'Note/{name}-{n}.png', optimize = True)
+for n in range(4):
+  c = ((255, 0, 0), (255, 255, 255), (0, 128, 255), (255, 128, 0))[n]
   render('default', _(50), 1, lambda x, y: (*c, 255 if abs(x - _(800)) < _(768) else 0))
   render('circle', _(50), _(50), lambda x, y: (*c, 255 if (x - _(800)) ** 2 + (y - _(800)) ** 2 < _(768) ** 2 else 0))
   render('circleLNStart', _(50), _(50), lambda x, y: (*c, 255 if (x - _(800)) ** 2 + max(0, y - _(800)) ** 2 < _(768) ** 2 else 0))
   render('circleLNEnd', _(50), _(50), lambda x, y: (*c, 255 if (x - _(800)) ** 2 + max(0, _(800) - y) ** 2 < _(768) ** 2 else 0))
+  c = ((128, 0, 128), (43, 43, 43), (0, 0, 128), (0, 128, 0))[n]
+  def ez2(x, y):
+    t = (x - _(800)) ** 2 + (y - _(800)) ** 2
+    if t > _(768) ** 2: return (0, 0, 0, 0)
+    if t > _(736) ** 2: return (0, 0, 0, 255)
+    if t > _(608) ** 2: return (255, 255, 255, 255)
+    if t > _(544) ** 2: return (*c, 255)
+    if t > _(320) ** 2:
+      t = abs(((x - _(384)) ** 2 + (y - _(800)) ** 2) / _(640) ** 2 - 1) * 170
+      return (*(min(255, tt + t) for tt in c), 255)
+    if t > _(224) ** 2: return (*c, 255)
+    t = (abs(((x - _(640)) ** 2 + (y - _(800)) ** 2) / _(288) ** 2 - 1) + 1) * 85
+    return (*(min(255, tt + t) for tt in c), 255)
+  render('ez2', _(50), _(50), ez2)
 
 im = Image.new('RGBA', (_(120), _(480)), (0, 0, 0, 0))
 pi = im.load()
@@ -298,7 +308,7 @@ font = ImageFont.truetype('./Lato/Lato-Regular.ttf', _(16))
 draw = ImageDraw.Draw(im)
 txt = ('SPEED', 'B  P  M')
 for i, t in enumerate(txt):
-  w, h = draw.textsize(t, font = font)
+  w, h = draw.textbbox((0, 0), t, font = font)[2:]
   draw.text(((_(60) - w) / 2, (_(48 * i + 740.) - h) / 2), t, (255, 255, 255), font = font)
 im.save('Frame/default-left.png', optimize = True)
 
@@ -314,7 +324,7 @@ font = ImageFont.truetype('./Lato/Lato-Regular.ttf', _(16))
 draw = ImageDraw.Draw(im)
 txt = ('SPEED', 'B  P  M')
 for i, t in enumerate(txt):
-  w, h = draw.textsize(t, font = font)
+  w, h = draw.textbbox((0, 0), t, font = font)[2:]
   draw.text(((_(60) - w) / 2, (_(48 * i + 740.) - h) / 2), t, (255, 255, 255), font = font)
 im.save('Frame/mirror-right.png', optimize = True)
 
@@ -359,7 +369,7 @@ txt = (
   'STAGE FINAL',
 )
 for i, t in enumerate(txt):
-  w, h = draw.textsize(t, font = font)
+  w, h = draw.textbbox((0, 0), t, font = font)[2:]
   draw.text(((_(120) - w) / 2, _(24) * i + (_(20.) - h) / 2), t, (255, 255, 255), font = font)
 im.save('Option/default.png', optimize = True)
 
@@ -410,19 +420,19 @@ font = ImageFont.truetype('./Lato/Lato-Regular.ttf', _(16))
 
 im = Image.new('RGBA', (_(400), _(240)), (0, 0, 0, 0))
 draw = ImageDraw.Draw(im)
-w, h = draw.textsize('FINISH', font = font)
+w, h = draw.textbbox((0, 0), 'FINISH', font = font)[2:]
 draw.text(((_(400) - w) / 2, (_(240) - h) / 2), 'FINISH', (255, 255, 255), font = font)
 im.save('Finish/default.png', optimize = True)
 
 im = Image.new('RGBA', (_(12), _(24)), (0, 0, 0, 0))
 draw = ImageDraw.Draw(im)
-w, h = draw.textsize('.', font = font)
+w, h = draw.textbbox((0, 0), '.', font = font)[2:]
 draw.text(((_(12) - w) / 2, (_(20.) - h) / 2), '.', (255, 255, 255), font = font)
 im.save('Dot/default.png', optimize = True)
 
 im = Image.new('RGBA', (_(12), _(24)), (0, 0, 0, 0))
 draw = ImageDraw.Draw(im)
-w, h = draw.textsize(':', font = font)
+w, h = draw.textbbox((0, 0), ':', font = font)[2:]
 draw.text(((_(12) - w) / 2, (_(20.) - h) / 2), ':', (255, 255, 255), font = font)
 im.save('Colon/default.png', optimize = True)
 
@@ -451,7 +461,7 @@ font = ImageFont.truetype('./Lato/Lato-Bold.ttf', _(32))
 im = Image.new('RGBA', (len(s) * _(24), _(48)), (0, 0, 0, 0))
 draw = ImageDraw.Draw(im)
 for i in range(len(s)):
-  w, h = draw.textsize(s[i], font = font)
+  w, h = draw.textbbox((0, 0), s[i], font = font)[2:]
   draw.text((i * _(24) + (_(24) - w) / 2, (_(40.) - h) / 2), s[i], (255, 255, 255), font = font)
 pi = im.load()
 w, h = im.size
@@ -473,7 +483,7 @@ im = Image.new('RGBA', (len(s[0]) * _(12), _(24) * 2), (0, 0, 0, 0))
 draw = ImageDraw.Draw(im)
 for j in range(len(s)):
   for i in range(len(s[j])):
-    w, h = draw.textsize(s[j][i], font = font)
+    w, h = draw.textbbox((0, 0), s[j][i], font = font)[2:]
     draw.text((i * _(12) + (_(12) - w) / 2, j * _(24) + (_(20.) - h) / 2), s[j][i], c[j], font = font)
 pi = im.load()
 w, h = im.size
@@ -503,7 +513,7 @@ font = ImageFont.truetype('./Kaushan_Script/KaushanScript-Regular.ttf', _(80))
 for x, y in zip(s, c):
   im = Image.new('RGBA', (_(120), _(120)), (0, 0, 0, 0))
   draw = ImageDraw.Draw(im)
-  w, h = draw.textsize(x[0], font = font)
+  w, h = draw.textbbox((0, 0), x[0], font = font)[2:]
   draw.text(((_(120) - w) / 2, (_(96.) - h) / 2), x[0], y[0], font = font)
   pi = im.load()
   w, h = im.size
@@ -553,7 +563,7 @@ font = ImageFont.truetype('./Lato/Lato-Bold.ttf', _(32))
 for T in range(len(s)):
   im = Image.new('RGBA', (_(400), _(240)), (0, 0, 0, 0))
   draw = ImageDraw.Draw(im)
-  w, h = draw.textsize(s[T], font = font)
+  w, h = draw.textbbox((0, 0), s[T], font = font)[2:]
   draw.text(((_(400) - w) / 2, (_(240) - h) / 2), s[T], c[T], font = font)
   pi = im.load()
   w, h = im.size
