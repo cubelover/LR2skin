@@ -13,16 +13,17 @@ CUSTOMOPTION = (
 CUSTOMFILE = (
   ('FRAME', 'Frame', 'csv'),
   ('NOTE', 'Note', 'csv'),
+  ('JUDGELINE', 'Judgeline'),
+  ('LASER', 'Laser'),
   ('GAUGE', 'Gauge'),
+  ('LINE', 'Line'),
   ('NUMBER SMALL', 'NumberSmall'),
   ('NUMBER BIG', 'NumberBig'),
   ('SHUTTER', 'Shutter'),
   ('OPTION', 'Option'),
   ('FINISH', 'Finish'),
   ('PROGRESS', 'Progress'),
-  ('LINE', 'Line'),
   ('LOADING', 'Loading'),
-  ('JUDGELINE', 'Judgeline'),
   ('JUDGE 0', 'Judge0'),
   ('JUDGE 1', 'Judge1'),
   ('JUDGE 2', 'Judge2'),
@@ -93,6 +94,20 @@ def src(tag, num, img, x, y, w, h, dx, dy, *args):
 def dst(tag, num, x, y, w, h, *args, time = 0, alpha = 255, blend = 0):
   f.write(f'#DST_{tag},{num},{time},{x},{y},{w},{h},0,{alpha},255,255,255,{blend},0,0,0{"".join(f",{arg}" for arg in args)}\n')
 
+def doNotes(func):
+  f.write(f'#IF,{OP["TURNTABLE"]["LEFT"]},{OP["MIRROR"]["OFF"]}\n')
+  for i in range(8): func(i, i)
+  f.write('#ENDIF\n')
+  f.write(f'#IF,{OP["TURNTABLE"]["RIGHT"]},{OP["MIRROR"]["OFF"]}\n')
+  for i in range(8): func(i, i + 1 & 7)
+  f.write('#ENDIF\n')
+  f.write(f'#IF,{OP["TURNTABLE"]["LEFT"]},{OP["MIRROR"]["ON"]}\n')
+  for i in range(8): func(i, -i & 7)
+  f.write('#ENDIF\n')
+  f.write(f'#IF,{OP["TURNTABLE"]["RIGHT"]},{OP["MIRROR"]["ON"]}\n')
+  for i in range(8): func(i, 7 - i)
+  f.write('#ENDIF\n')
+
 def lr2skin(b):
   f.write(f'#INFORMATION,{12 if b else 0},{NAME},{CREATOR}\n')
   f.write(buffer)
@@ -101,6 +116,36 @@ def lr2skin(b):
 
   src('LINE', 0, 'LINE', 0, 0, _(400), 1, 1, 1)
   dst('LINE', 0, _(120), _(480), _(400), 1)
+
+  src('JUDGELINE', 0, 'JUDGELINE', 0, 0, _(400), _(50), 1, 1)
+  dst('JUDGELINE', 0, _(120), _(455), _(400), _(50))
+
+  def lasersrc(i):
+    src('IMAGE', 0, 'LASER', _(50) * i, 0, _(50), _(480), 1, 1)
+  def laserdst(i, j):
+    dst('IMAGE', 0, _(120 + j * 50), _(480), _(50), -_(480), 0, 100 + i)
+  for i in range(8):
+    if i == 0:
+      lasersrc(0)
+    elif i % 2:
+      lasersrc(1)
+    else:
+      for j in range(2 if i % 4 else 3):
+        f.write(f'#IF,{OP[f"COLOR {1 if i % 4 else 2}"][str(j)]}\n')
+        lasersrc(j + 1)
+        f.write('#ENDIF\n')
+    f.write(f'#IF,{OP["TURNTABLE"]["LEFT"]},{OP["MIRROR"]["OFF"]}\n')
+    laserdst(i, i)
+    f.write('#ENDIF\n')
+    f.write(f'#IF,{OP["TURNTABLE"]["RIGHT"]},{OP["MIRROR"]["OFF"]}\n')
+    laserdst(i, i + 7 & 7)
+    f.write('#ENDIF\n')
+    f.write(f'#IF,{OP["TURNTABLE"]["LEFT"]},{OP["MIRROR"]["ON"]}\n')
+    laserdst(i, -i & 7)
+    f.write('#ENDIF\n')
+    f.write(f'#IF,{OP["TURNTABLE"]["RIGHT"]},{OP["MIRROR"]["ON"]}\n')
+    laserdst(i, 7 - i)
+    f.write('#ENDIF\n')
 
   f.write(f'#INCLUDE,LR2files\\Theme\\{NAME}\\Note\\*.csv\n')
 
@@ -125,9 +170,6 @@ def lr2skin(b):
 
   src('IMAGE', 0, 'FINISH', 0, 0, _(400), _(240), 1, 1)
   dst('IMAGE', 0, _(120), _(240), _(400), _(240), 0, 143)
-
-  src('JUDGELINE', 0, 'JUDGELINE', 0, 0, _(400), _(40), 1, 1)
-  dst('JUDGELINE', 0, _(120), _(460), _(400), _(40))
 
   if b:
     for i in range(8):
@@ -243,18 +285,7 @@ def note(name, sh, dh, body = None):
         f.write(f'#IF,{OP[f"COLOR {1 if i % 4 else 2}"][str(j)]}\n')
         notesrc(i, j + 1)
         f.write('#ENDIF\n')
-  f.write(f'#IF,{OP["TURNTABLE"]["LEFT"]},{OP["MIRROR"]["OFF"]}\n')
-  for i in range(8): dst('NOTE', i, _(120 + i * 50), _(480) - (dh >> 1), _(50), dh)
-  f.write('#ENDIF\n')
-  f.write(f'#IF,{OP["TURNTABLE"]["RIGHT"]},{OP["MIRROR"]["OFF"]}\n')
-  for i in range(8): dst('NOTE', i + 1 & 7, _(120 + i * 50), _(480) - (dh >> 1), _(50), dh)
-  f.write('#ENDIF\n')
-  f.write(f'#IF,{OP["TURNTABLE"]["LEFT"]},{OP["MIRROR"]["ON"]}\n')
-  for i in range(8): dst('NOTE', -i & 7, _(120 + i * 50), _(480) - (dh >> 1), _(50), dh)
-  f.write('#ENDIF\n')
-  f.write(f'#IF,{OP["TURNTABLE"]["RIGHT"]},{OP["MIRROR"]["ON"]}\n')
-  for i in range(8): dst('NOTE', 7 - i, _(120 + i * 50), _(480) - (dh >> 1), _(50), dh)
-  f.write('#ENDIF\n')
+  doNotes(lambda i, j: dst('NOTE', j, _(120 + i * 50), _(480) - (dh >> 1), _(50), dh))
 
 with open('Note/default.csv', 'w') as f: note('default', 1, _(16))
 with open('Note/circle.csv', 'w') as f: note('circle', _(50), _(50), 'default')
@@ -411,22 +442,44 @@ for i in range(_(30), _(90)):
     pi[(i, j)] = c[j // _(6)]
 im.save('Gauge/default.png', optimize = True)
 
-im = Image.new('RGBA', (_(400), _(40)), (0, 0, 0, 0))
+im = Image.new('RGBA', (_(50) * 4, _(480)), (0, 0, 0, 0))
+im.save('Laser/transparent.png', optimize = True)
+pi = im.load()
+c = ((255, 0, 0), (255, 255, 255), (0, 128, 255), (255, 128, 0))
+for i in range(4):
+  for x in range(_(50)):
+    for j in range(_(240), _(480)):
+      pi[(i * _(50) + x, j)] = (*c[i], 255 * (j - _(240)) // _(240))
+im.save('Laser/default.png', optimize = True)
+
+im = Image.new('RGBA', (_(400), _(50)), (0, 0, 0, 0))
 im.save('Judgeline/transparent.png', optimize = True)
 pi = im.load()
 for i in range(_(400)):
-  for j in range(_(16), _(24)):
+  for j in range(_(21), _(29)):
     pi[(i, j)] = (255, 255, 255, 255)
 im.save('Judgeline/default.png', optimize = True)
 
-im = Image.new('RGBA', (_(400), _(40)), (0, 0, 0, 0))
+im = Image.new('RGBA', (_(400), _(50)), (0, 0, 0, 0))
 pi = im.load()
 for i in range(_(400)):
-  for j in range(_(10), _(30)):
-    t = abs(j - _(20) + .5) / _(10)
+  for j in range(_(13), _(37)):
+    t = abs(j - _(50) / 2 + .5) / _(12)
     tt = min(1, t * 4)
     pi[(i, j)] = (int(255 * (1 - tt / 2) + .5), int(255 * (1 - tt / 8) + .5), 255, int(255 * (1 - t) + .5))
 im.save('Judgeline/R.png', optimize = True)
+
+c = ((43, 43, 43))
+im = Image.new('RGBA', (_(400), _(50)), (0, 0, 0, 0))
+im2 = render(_(50), _(50), ez2)
+pi = im2.load()
+for i in range(_(50)):
+  for j in range(_(50)):
+    r, g, b, a = pi[(i, j)]
+    pi[(i, j)] = (r // 3, g // 3, b // 3, a)
+for i in range(8):
+  im.paste(im2, (_(50) * i, 0))
+im.save('Judgeline/EZ2.png', optimize = True)
 
 font = ImageFont.truetype('./Lato/Lato-Regular.ttf', _(16))
 
